@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.passpunk.launcher</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Applications/PassPunk.app/Contents/MacOS/PassPunk</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardErrorPath</key>
+    <string>/tmp/passpunk.err</string>
+    <key>StandardOutPath</key>
+    <string>/tmp/passpunk.out</string>
+    <key>com.apple.security.app-sandbox</key>
+    <true/>
+    <key>com.apple.security.network.client</key>
+    <true/>
+    <key>com.apple.security.temporary-exception.apple-events</key>
+    <array>
+        <string>com.google.Chrome</string>
+    </array>
+</dict>
+</plist> 

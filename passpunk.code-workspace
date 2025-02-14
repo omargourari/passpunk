@@ -1,0 +1,22 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"editor.codeActionsOnSave": {
+			"source.fixAll.eslint": "never",
+			"source.organizeImports": "never",
+			"source.sortMembers": "never",
+		},
+		"configurations": [
+			{
+				"name": "Swift Debug",
+				"type": "lldb",
+				"request": "launch",
+				"program": "${workspaceFolder}/.build/debug/MySwiftApp"
+			}
+		],
+	}
+}
