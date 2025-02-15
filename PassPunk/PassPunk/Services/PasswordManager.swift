@@ -1,6 +1,5 @@
 import Foundation
 import AppKit
-//@testable import PassPunk // Remove this - we're not importing a module
 
 class PasswordManager {
     static let shared = try! PasswordManager()
@@ -13,7 +12,7 @@ class PasswordManager {
     func checkAndUpdatePassword() async throws {
         print("Starting password check process...")
 
-        // Use AppleScript to tell VPNManager to authenticate
+        // Use VPNManager to authenticate
         try await authenticateWithVPNManager()
         print("VPN connected successfully (via VPNManager)")
 
@@ -73,28 +72,8 @@ class PasswordManager {
     }
 
     private func authenticateWithVPNManager() async throws {
-        let scriptSource = """
-        tell application "Bita"
-            startVPN
-        end tell
-        """
-
-        return try await withCheckedThrowingContinuation { continuation in
-            var error: NSDictionary?
-            if let scriptObject = NSAppleScript(source: scriptSource) {
-                let _: NSAppleEventDescriptor = scriptObject.executeAndReturnError(&error)
-                if let error = error {
-                    print("AppleScript error: \(error)")
-                    continuation.resume(throwing: PasswordError.vpnError) // Or a more specific error
-                } else {
-                    // If no error, assume success.  You might want to add more robust checking
-                    // by having VPNManager return a value from the AppleScript.
-                    continuation.resume()
-                }
-            } else {
-                continuation.resume(throwing: PasswordError.vpnError) // Script compilation failed
-            }
-        }
+        // Use VPNManager instead of AppleScript
+        try await VPNManager.shared.authenticate()
     }
 }
 

@@ -6,9 +6,8 @@ struct PassPunkApp: App {
     
     var body: some Scene {
         WindowGroup {
-            SettingsView()
+            EmptyView()
+                .frame(width: 400, height: 300)
         }
-        .windowStyle(.hiddenTitleBar)
-        .windowResizability(.contentSize)
     }
 } 

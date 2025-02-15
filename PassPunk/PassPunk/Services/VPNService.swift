@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 
 class VPNService {
     static let shared = VPNService()
@@ -27,7 +28,27 @@ class VPNService {
     }
     
     func requestTwoFactorCode() async throws -> String {
-        // Mostra un dialogo per richiedere il codice 2FA
-        return ""
+        return await withCheckedContinuation { continuation in
+            DispatchQueue.main.async {
+                let alert = NSAlert()
+                alert.messageText = "Two-Factor Authentication Required"
+                alert.informativeText = "Please enter your 2FA code:"
+                alert.alertStyle = .informational
+                
+                let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
+                alert.accessoryView = input
+                alert.addButton(withTitle: "OK")
+                alert.addButton(withTitle: "Cancel")
+                
+                input.stringValue = ""
+                
+                let response = alert.runModal()
+                if response == .alertFirstButtonReturn {
+                    continuation.resume(returning: input.stringValue)
+                } else {
+                    continuation.resume(returning: "")
+                }
+            }
+        }
     }
 }

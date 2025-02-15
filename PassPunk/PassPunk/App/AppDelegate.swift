@@ -3,19 +3,23 @@ import Cocoa
 import Security
 import SwiftUI
 
-class AppDelegate: NSObject, NSApplicationDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate, StatusBarMenuDelegate {
     var statusBarItem: NSStatusItem!
     var statusBarMenu: StatusBarMenu!
     private var periodicTimer: Timer?
-    var settingsWindow: NSWindow?
+    private var settingsWindowController: NSWindowController?
+    private var settingsWindow: NSWindow?
+    
+    // Add this notification name
+    static let checkStatusChanged = Notification.Name("CheckStatusChanged")
+    
+    // Add required override init
+    override init() {
+        super.init()
+    }
     
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupStatusBar()
-        
-        // Wrap the call to startPeriodicChecks in a Task
-        Task {
-            await startPeriodicChecks()
-        }
 
         // Nascondi l'icona dal Dock
         NSApp.setActivationPolicy(.accessory)
@@ -24,27 +28,41 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func setupStatusBar() {
         statusBarItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = statusBarItem.button {
-            button.image = NSImage(systemSymbolName: "lock.shield", accessibilityDescription: "PassPunk")
+            button.image = NSImage(systemSymbolName: "network", accessibilityDescription: "PassPunk")
         }
         
         statusBarMenu = StatusBarMenu()
         statusBarMenu.delegate = self
-        statusBarItem.menu = statusBarMenu.createMenu()
+        
+        // Setup click handling
+        if let button = statusBarItem.button {
+            statusBarMenu.setupStatusBarButton(button)
+        }
     }
     
-    @objc func openSettings() {
-        if settingsWindow == nil {
-            let settingsView = SettingsView()
-            settingsWindow = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 400, height: 300),
-                styleMask: [.titled, .closable, .miniaturizable],
-                backing: .buffered,
-                defer: false
-            )
-            settingsWindow?.center()
-            settingsWindow?.contentView = NSHostingView(rootView: settingsView)
-            settingsWindow?.title = "Settings"
+    @objc func quitApp() {
+        NSApplication.shared.terminate(nil)
+    }
+    
+    func openSettings() {
+        if let existingWindow = settingsWindow {
+            existingWindow.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
         }
+        
+        let mainWindow = MainWindow()
+        settingsWindow = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 650, height: 780),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        
+        settingsWindow?.center()
+        settingsWindow?.contentView = NSHostingView(rootView: mainWindow)
+        settingsWindow?.title = "PassPunk Manager"
+        settingsWindow?.delegate = self
         
         settingsWindow?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
@@ -53,6 +71,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc @Sendable func performManualCheck() {
         Task {
             do {
+                // Specify the type explicitly to resolve ambiguity
                 try await VPNManager.shared.authenticate()
                 try await PasswordManager.shared.checkAndUpdatePassword()
             } catch {
@@ -69,17 +88,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
     
-    func startPeriodicChecks() async {
-        periodicTimer = Timer.scheduledTimer(withTimeInterval: 1800, repeats: true) { [weak self] _ in
-            guard let self = self else { return }
-            Task {
-                await self.performManualCheck()
-            }
-        }
-    }
-    
     func performPeriodicChecks() async {
         do {
+            // Update these calls as well
             try await VPNManager.shared.authenticate()
             try await PasswordManager.shared.checkAndUpdatePassword()
         } catch {
@@ -88,6 +99,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
-extension AppDelegate: StatusBarMenuDelegate {
-    // I metodi sono già implementati
+// Update window delegate extension
+extension AppDelegate: NSWindowDelegate {
+    func windowWillClose(_ notification: Notification) {
+        if notification.object as? NSWindow == settingsWindowController?.window {
+            settingsWindowController = nil
+        }
+    }
 }

@@ -10,6 +10,7 @@
 			"source.organizeImports": "never",
 			"source.sortMembers": "never",
 		},
+		"cursor.general.disableHttp2": true,
 		"configurations": [
 			{
 				"name": "Swift Debug",
