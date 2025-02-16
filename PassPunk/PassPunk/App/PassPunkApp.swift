@@ -6,8 +6,8 @@ struct PassPunkApp: App {
     
     var body: some Scene {
         WindowGroup {
-            EmptyView()
-                .frame(width: 400, height: 300)
+            MainAppView()
+                .frame(minWidth: 650, minHeight: 520)
         }
     }
 } 

@@ -2,13 +2,13 @@ import Foundation
 import Cocoa
 import Security
 import SwiftUI
+import os.log
 
 class AppDelegate: NSObject, NSApplicationDelegate, StatusBarMenuDelegate {
-    var statusBarItem: NSStatusItem!
-    var statusBarMenu: StatusBarMenu!
-    private var periodicTimer: Timer?
-    private var settingsWindowController: NSWindowController?
-    private var settingsWindow: NSWindow?
+    private var mainWindow: NSWindow?
+    private var mainWindowController: NSWindowController?
+    private let statusBarController = StatusBarController.shared
+    private let logger = Logger(subsystem: "com.passpunk.PassPunk", category: "AppDelegate")
     
     // Add this notification name
     static let checkStatusChanged = Notification.Name("CheckStatusChanged")
@@ -20,52 +20,51 @@ class AppDelegate: NSObject, NSApplicationDelegate, StatusBarMenuDelegate {
     
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupStatusBar()
-
-        // Nascondi l'icona dal Dock
-        NSApp.setActivationPolicy(.accessory)
-    }
-    
-    private func setupStatusBar() {
-        statusBarItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        if let button = statusBarItem.button {
-            button.image = NSImage(systemSymbolName: "network", accessibilityDescription: "PassPunk")
-        }
         
-        statusBarMenu = StatusBarMenu()
-        statusBarMenu.delegate = self
-        
-        // Setup click handling
-        if let button = statusBarItem.button {
-            statusBarMenu.setupStatusBarButton(button)
+        Task {
+            do {
+                try await FirstLaunchManager.shared.checkFirstLaunch()
+            } catch {
+                logger.error("Error during first launch setup: \(error.localizedDescription)")
+            }
         }
     }
     
-    @objc func quitApp() {
-        NSApplication.shared.terminate(nil)
-    }
-    
-    func openSettings() {
-        if let existingWindow = settingsWindow {
+    private func openMainWindow() {
+        if let existingWindow = mainWindow {
             existingWindow.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
             return
         }
         
-        let mainWindow = MainWindow()
-        settingsWindow = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 650, height: 780),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+        let mainView = MainAppView()
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 650, height: 520),
+            styleMask: [.titled, .closable, .miniaturizable],
             backing: .buffered,
             defer: false
         )
         
-        settingsWindow?.center()
-        settingsWindow?.contentView = NSHostingView(rootView: mainWindow)
-        settingsWindow?.title = "PassPunk Manager"
-        settingsWindow?.delegate = self
+        window.center()
+        window.contentView = NSHostingView(rootView: mainView)
+        window.title = "PassPunk"
+        window.delegate = self
         
-        settingsWindow?.makeKeyAndOrderFront(nil)
+        // Create a window controller to manage the window lifecycle
+        let windowController = NSWindowController(window: window)
+        mainWindowController = windowController
+        mainWindow = window
+        
+        window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+    
+    @objc func openSettings() {
+        openMainWindow()
+    }
+    
+    func quitApp() {
+        NSApplication.shared.terminate(nil)
     }
     
     @objc @Sendable func performManualCheck() {
@@ -97,13 +96,20 @@ class AppDelegate: NSObject, NSApplicationDelegate, StatusBarMenuDelegate {
             print("Error updating password: \(error)")
         }
     }
+    
+    private func setupStatusBar() {
+        // Initialize status bar using the shared controller
+        statusBarController.configureStatusBar(delegate: self)
+    }
 }
 
 // Update window delegate extension
 extension AppDelegate: NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
-        if notification.object as? NSWindow == settingsWindowController?.window {
-            settingsWindowController = nil
+        if notification.object as? NSWindow == mainWindow {
+            // Clean up references
+            mainWindow = nil
+            mainWindowController = nil
         }
     }
 }

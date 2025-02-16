@@ -13,9 +13,11 @@ class StatusBarMenu: NSObject, ObservableObject {
     weak var delegate: StatusBarMenuDelegate?
     @Published var isVPNActive: Bool = false
     @Published var isAuthenticating: Bool = false
+    @Published var connectionStatus: VPNStatus = .disconnected
     private var longPressTimer: Timer?
     private var animationTimer: Timer?
     private var rotationAngle: CGFloat = 0
+    private var statusBarItem: NSStatusItem?
     
     static let shared = StatusBarMenu()
     
@@ -26,15 +28,37 @@ class StatusBarMenu: NSObject, ObservableObject {
     
     private func startVPNCheck() {
         Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
-            self?.checkVPNStatus()
+            Task {
+                try? await self?.checkVPNStatus()
+            }
         }
     }
     
-    private func checkVPNStatus() {
-        isVPNActive = isVPNActive
+    func checkVPNStatus() async throws {
+        do {
+            let status = try await VPNManager.shared.checkVPNStatus()
+            await MainActor.run {
+                self.isVPNActive = status
+                self.connectionStatus = status ? .connected : .disconnected
+                if let button = statusBarItem?.button {
+                    updateIcon(button)
+                }
+            }
+        } catch {
+            await MainActor.run {
+                self.isVPNActive = false
+                self.connectionStatus = .disconnected
+                if let button = statusBarItem?.button {
+                    updateIcon(button)
+                }
+            }
+        }
     }
     
     func setupStatusBarButton(_ button: NSStatusBarButton) {
+        // Salva il riferimento allo statusBarItem
+        statusBarItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        
         // Configura il gesture recognizer per il long press
         let pressGesture = NSPressGestureRecognizer(target: self, action: #selector(handleLongPress(_:)))
         pressGesture.minimumPressDuration = 0.3
@@ -44,24 +68,25 @@ class StatusBarMenu: NSObject, ObservableObject {
         button.target = self
         button.action = #selector(statusBarButtonClicked(_:))
         
-        // Imposta l'icona iniziale
+        // Imposta l'icona iniziale e il colore
         let image = NSImage(systemSymbolName: "network", accessibilityDescription: "PassPunk")
         image?.isTemplate = true
         button.image = image
+        button.contentTintColor = .systemRed
         
         updateIcon(button)
     }
     
     private func updateIcon(_ button: NSStatusBarButton) {
+        let image = NSImage(systemSymbolName: "network", accessibilityDescription: "PassPunk")
+        image?.isTemplate = true
+        button.image = image
+        
         if isAuthenticating {
             startIconAnimation(button)
         } else {
             stopIconAnimation()
-            if isVPNActive {
-                button.contentTintColor = .systemGreen
-            } else {
-                button.contentTintColor = .systemRed
-            }
+            button.contentTintColor = isVPNActive ? .systemGreen : .systemRed
         }
     }
     
@@ -109,7 +134,7 @@ class StatusBarMenu: NSObject, ObservableObject {
     
     private func startVPNAuthentication() {
         isAuthenticating = true
-        if let button = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength).button {
+        if let button = statusBarItem?.button {
             updateIcon(button)
         }
         
@@ -119,14 +144,14 @@ class StatusBarMenu: NSObject, ObservableObject {
                 await MainActor.run {
                     self.isAuthenticating = false
                     self.isVPNActive = true
-                    if let button = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength).button {
+                    if let button = statusBarItem?.button {
                         updateIcon(button)
                     }
                 }
             } catch {
                 await MainActor.run {
                     self.isAuthenticating = false
-                    if let button = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength).button {
+                    if let button = statusBarItem?.button {
                         updateIcon(button)
                     }
                 }

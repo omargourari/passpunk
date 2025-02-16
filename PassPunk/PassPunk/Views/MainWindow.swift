@@ -1,3 +1,18 @@
+import SwiftUI
+import Foundation
+
+enum CheckStatus {
+    case idle
+    case inProgress
+    
+    var description: String {
+        switch self {
+        case .idle: return "Last check completed"
+        case .inProgress: return "Check in progress"
+        }
+    }
+}
+
 struct MainWindow: View {
     // Manteniamo gli stessi state e property wrapper
     @AppStorage("vpnUsername") private var vpnUsername: String = ""
@@ -17,6 +32,7 @@ struct MainWindow: View {
     
     @StateObject private var statusBarMenu = StatusBarMenu.shared
     
-    // Il resto del codice rimane lo stesso della SettingsView
-    // Riferimento alle linee 27-366 del file originale
+    var body: some View {
+        MainAppView()
+    }
 } 
