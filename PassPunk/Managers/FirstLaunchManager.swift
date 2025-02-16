@@ -2,7 +2,8 @@ import Foundation
 import Cocoa
 import os.log
 
-class FirstLaunchManager {
+@available(macOS 15.0, *)
+class FirstLaunchManager: @unchecked Sendable {
     static let shared = FirstLaunchManager()
     private let defaults = UserDefaults.standard
     private let logger = Logger(subsystem: "com.passpunk.PassPunk", category: "FirstLaunchManager")

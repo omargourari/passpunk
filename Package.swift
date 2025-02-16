@@ -4,7 +4,7 @@ import PackageDescription
 let package = Package(
     name: "PassPunk",
     platforms: [
-        .macOS(.v12)
+        .macOS("15.0")
     ],
     products: [
         .executable(name: "PassPunk", targets: ["PassPunk"])

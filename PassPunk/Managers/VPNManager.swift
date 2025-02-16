@@ -7,7 +7,7 @@ import ApplicationServices
 import SwiftUI
 import CoreGraphics
 
-@MainActor
+@available(macOS 15.0, *)
 class VPNManager: ObservableObject {
     static let shared = VPNManager()
     private let logger = Logger(subsystem: "com.passpunk.PassPunk", category: "VPNManager")
@@ -29,6 +29,7 @@ class VPNManager: ObservableObject {
         case authenticationFailed
         case scriptError(String)
         case windowNotFound
+        case accessibilityError
     }
     
     func authenticate() async throws {
@@ -106,30 +107,29 @@ class VPNManager: ObservableObject {
         try await performLogin()
     }
     
+    private func sleep(_ duration: TimeInterval) async throws {
+        // Backwards compatible sleep implementation
+        try await Task.sleep(nanoseconds: UInt64(duration * 1_000_000_000))
+    }
+
     private func launchVPNApplication(at url: URL) async throws {
-        let process = Process()
-        process.launchPath = "/usr/bin/open"
-        process.arguments = ["-a", url.path]
+        if let vpnApp = NSWorkspace.shared.runningApplications.first(where: { $0.bundleIdentifier == "com.f5networks.EdgeClient" }) {
+            _ = vpnApp // Silence unused warning
+        }
         
-        try process.run()
-        try await Task.sleep(for: .seconds(10)) // Wait for app to fully launch
+        try await NSWorkspace.shared.openApplication(at: url, configuration: .init())
+        try await Task.sleep(for: .seconds(10))
     }
     
     private func waitForVPNWindow() async throws {
-        var attempts = 0
-        let maxAttempts = 12 // 60 seconds total
-        
-        while attempts < maxAttempts {
+        while true {
             if let app = NSWorkspace.shared.runningApplications.first(where: { $0.bundleIdentifier == "com.f5networks.EdgeClient" }) {
                 if app.isActive {
                     return
                 }
             }
             try await Task.sleep(for: .seconds(5))
-            attempts += 1
         }
-        
-        throw VPNError.windowNotFound
     }
     
     func performLogin() async throws {
@@ -215,7 +215,7 @@ class VPNManager: ObservableObject {
         
         // Wait for application to be active (reduced wait time)
         logger.debug("Waiting for application to be active...")
-        try await Task.sleep(for: .seconds(1))
+        try await sleep(1)
         
         // Helper function for keyboard events
         func postKey(_ key: CGKeyCode, flags: CGEventFlags = []) {
@@ -282,7 +282,7 @@ class VPNManager: ObservableObject {
         logger.info("Entering 2FA code")
         
         // Wait for the window to be ready
-        try await Task.sleep(for: .seconds(1))
+        try await sleep(1)
         
         // Create a stable event source
         guard let eventSource = CGEventSource(stateID: .hidSystemState) else {
@@ -351,8 +351,8 @@ class VPNManager: ObservableObject {
         guard let app = NSWorkspace.shared.runningApplications.first(where: { $0.bundleIdentifier == "com.f5networks.EdgeClient" }) else {
             throw VPNError.applicationNotFound
         }
-        
-        try await Task.sleep(for: .seconds(2))
+        _ = app // Silence unused warning
+        try await sleep(2)
         
         let systemWideElement = AXUIElementCreateSystemWide()
         var windowList: CFTypeRef?
@@ -415,65 +415,61 @@ class VPNManager: ObservableObject {
             throw VPNError.applicationNotFound
         }
         
-        guard let appRef = AXUIElementCreateApplication(app.processIdentifier) else {
-            logger.error("Failed to create accessibility reference")
+        let appRef = AXUIElementCreateApplication(app.processIdentifier)
+        guard appRef != nil else {
+            throw VPNError.accessibilityError
+        }
+        
+        // Fix accessibility constants
+        let kAXButtonsAttribute = "AXButtons"
+        
+        var buttonsRef: CFTypeRef?
+        AXUIElementCopyAttributeValue(appRef, kAXButtonsAttribute as CFString, &buttonsRef)
+        
+        guard let buttonsArray = buttonsRef as? [AXUIElement] else {
+            logger.error("No buttons found")
             throw VPNError.windowNotFound
         }
         
-        var windows: CFArray?
-        AXUIElementCopyAttributeValues(appRef, kAXWindowsAttribute as CFString, 0, 100, &windows)
-        
-        guard let windowsArray = windows as? [AXUIElement] else {
-            logger.error("No windows found")
-            throw VPNError.windowNotFound
-        }
-        
-        for window in windowsArray {
-            var buttons: CFArray?
-            AXUIElementCopyAttributeValues(window, kAXButtonsAttribute as CFString, 0, 100, &buttons)
+        for button in buttonsArray {
+            var title: CFTypeRef?
+            AXUIElementCopyAttributeValue(button, kAXTitleAttribute as CFString, &title)
             
-            if let buttonsArray = buttons as? [AXUIElement] {
-                for button in buttonsArray {
-                    var title: CFTypeRef?
-                    AXUIElementCopyAttributeValue(button, kAXTitleAttribute as CFString, &title)
+            if let buttonTitle = title as? String,
+               buttonTitle.lowercased() == "logon" {
+                logger.info("Found Logon button, attempting to press")
+                var press = AXUIElementPerformAction(button, kAXPressAction as CFString)
+                if press == .success {
+                    logger.info("Successfully pressed Logon button")
+                    return
+                }
+                
+                // Fallback: prova a cliccare usando le coordinate
+                var position: CFTypeRef?
+                var size: CFTypeRef?
+                AXUIElementCopyAttributeValue(button, kAXPositionAttribute as CFString, &position)
+                AXUIElementCopyAttributeValue(button, kAXSizeAttribute as CFString, &size)
+                
+                if let positionValue = position as? NSValue,
+                   let sizeValue = size as? NSValue {
+                    let point = positionValue.pointValue
+                    let size = sizeValue.sizeValue
+                    let clickPoint = CGPoint(
+                        x: point.x + size.width/2,
+                        y: point.y + size.height/2
+                    )
                     
-                    if let buttonTitle = title as? String,
-                       buttonTitle.lowercased() == "logon" {
-                        logger.info("Found Logon button, attempting to press")
-                        var press = AXUIElementPerformAction(button, kAXPressAction as CFString)
-                        if press == .success {
-                            logger.info("Successfully pressed Logon button")
-                            return
-                        }
-                        
-                        // Fallback: prova a cliccare usando le coordinate
-                        var position: CFTypeRef?
-                        var size: CFTypeRef?
-                        AXUIElementCopyAttributeValue(button, kAXPositionAttribute as CFString, &position)
-                        AXUIElementCopyAttributeValue(button, kAXSizeAttribute as CFString, &size)
-                        
-                        if let positionValue = position as? NSValue,
-                           let sizeValue = size as? NSValue {
-                            let point = positionValue.pointValue
-                            let size = sizeValue.sizeValue
-                            let clickPoint = CGPoint(
-                                x: point.x + size.width/2,
-                                y: point.y + size.height/2
-                            )
-                            
-                            logger.info("Attempting mouse click at: \(clickPoint)")
-                            
-                            let source = CGEventSource(stateID: .hidSystemState)
-                            let click = CGEvent(mouseEventSource: source, mouseType: .leftMouseDown, mouseCursorPosition: clickPoint, mouseButton: .left)
-                            let release = CGEvent(mouseEventSource: source, mouseType: .leftMouseUp, mouseCursorPosition: clickPoint, mouseButton: .left)
-                            
-                            click?.post(tap: .cghidEventTap)
-                            try await Task.sleep(for: .milliseconds(100))
-                            release?.post(tap: .cghidEventTap)
-                            
-                            return
-                        }
-                    }
+                    logger.info("Attempting mouse click at: \(String(describing: clickPoint))")
+                    
+                    let source = CGEventSource(stateID: .hidSystemState)
+                    let click = CGEvent(mouseEventSource: source, mouseType: .leftMouseDown, mouseCursorPosition: clickPoint, mouseButton: .left)
+                    let release = CGEvent(mouseEventSource: source, mouseType: .leftMouseUp, mouseCursorPosition: clickPoint, mouseButton: .left)
+                    
+                    click?.post(tap: .cghidEventTap)
+                    try await Task.sleep(for: .milliseconds(100))
+                    release?.post(tap: .cghidEventTap)
+                    
+                    return
                 }
             }
         }
