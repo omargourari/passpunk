@@ -11,6 +11,24 @@
             "program": "${workspaceFolder}/PassPunk/PassPunk/App/AppDelegate.swift",
             "args": [],
             "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:passpunk}",
+            "name": "Debug PassPunk",
+            "program": "${workspaceFolder:passpunk}/.build/debug/PassPunk",
+            "preLaunchTask": "swift: Build Debug PassPunk"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:passpunk}",
+            "name": "Release PassPunk",
+            "program": "${workspaceFolder:passpunk}/.build/release/PassPunk",
+            "preLaunchTask": "swift: Build Release PassPunk"
         }
     ]
 }

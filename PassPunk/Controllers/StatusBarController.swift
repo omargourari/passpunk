@@ -13,17 +13,32 @@ class StatusBarController: ObservableObject {
     private weak var menuDelegate: StatusBarMenuDelegate?
     
     private init() {
+        print("StatusBarController: Initializing...")
         setupInitialStatusBar()
+        if statusBarItem?.button == nil {
+            print("StatusBarController: Failed to create status bar item")
+        } else {
+            print("StatusBarController: Status bar item created successfully")
+        }
         startVPNCheck()
     }
     
     private func setupInitialStatusBar() {
         statusBarItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = statusBarItem?.button {
-            let image = NSImage(systemSymbolName: "network", accessibilityDescription: "PassPunk")
+            let image: NSImage?
+            if let systemImage = NSImage(systemSymbolName: "network", accessibilityDescription: "PassPunk") {
+                image = systemImage
+            } else {
+                // Fallback to a custom image or another system symbol
+                image = NSImage(systemSymbolName: "wifi", accessibilityDescription: "PassPunk")
+            }
+            
             image?.isTemplate = true
             button.image = image
             updateIcon(button)
+        } else {
+            print("Failed to create status bar button")
         }
     }
     
@@ -61,6 +76,14 @@ class StatusBarController: ObservableObject {
     }
     
     private func updateIcon(_ button: NSStatusBarButton) {
-        button.contentTintColor = isVPNActive ? .systemGreen : .systemRed
+        if isAuthenticating {
+            button.contentTintColor = .systemBlue
+        } else {
+            button.contentTintColor = isVPNActive ? .systemGreen : .systemRed
+        }
+        
+        // Ensure the image is visible
+        button.image?.size = NSSize(width: 18, height: 18)
+        button.image?.isTemplate = true
     }
 } 
