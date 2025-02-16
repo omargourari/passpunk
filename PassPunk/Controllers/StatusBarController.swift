@@ -1,13 +1,13 @@
 import Cocoa
 import SwiftUI
+import NetworkExtension
 
-class StatusBarController: ObservableObject {
+@MainActor
+final class StatusBarController: @unchecked Sendable {
     static let shared = StatusBarController()
     
-    @Published var isVPNActive: Bool = false
-    @Published var isAuthenticating: Bool = false
     @Published var connectionStatus: VPNStatus = .disconnected
-    
+    @Published var isAuthenticating: Bool = false
     private var statusBarItem: NSStatusItem?
     private var statusCheckTimer: Timer?
     private weak var menuDelegate: StatusBarMenuDelegate?
@@ -21,6 +21,17 @@ class StatusBarController: ObservableObject {
             print("StatusBarController: Status bar item created successfully")
         }
         startVPNCheck()
+        
+        // Inizializza lo stato della connessione
+        updateConnectionStatus()
+        
+        // Osserva i cambiamenti dello stato VPN
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(vpnStatusDidChange),
+            name: .NEVPNConfigurationChange,
+            object: nil
+        )
     }
     
     private func setupInitialStatusBar() {
@@ -57,17 +68,14 @@ class StatusBarController: ObservableObject {
         }
     }
     
-    @MainActor
     private func checkVPNStatus() async {
         do {
             let status = try await VPNManager.shared.checkVPNStatus()
-            self.isVPNActive = status
             self.connectionStatus = status ? .connected : .disconnected
             if let button = statusBarItem?.button {
                 updateIcon(button)
             }
         } catch {
-            self.isVPNActive = false
             self.connectionStatus = .disconnected
             if let button = statusBarItem?.button {
                 updateIcon(button)
@@ -79,11 +87,21 @@ class StatusBarController: ObservableObject {
         if isAuthenticating {
             button.contentTintColor = .systemBlue
         } else {
-            button.contentTintColor = isVPNActive ? .systemGreen : .systemRed
+            button.contentTintColor = connectionStatus == .connected ? .systemGreen : .systemRed
         }
         
         // Ensure the image is visible
         button.image?.size = NSSize(width: 18, height: 18)
         button.image?.isTemplate = true
+    }
+    
+    @objc private func vpnStatusDidChange(_ notification: Notification) {
+        updateConnectionStatus()
+    }
+    
+    private func updateConnectionStatus() {
+        DispatchQueue.main.async {
+            self.connectionStatus = VPNManager.shared.connectionState
+        }
     }
 } 

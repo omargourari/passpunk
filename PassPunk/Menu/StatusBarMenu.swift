@@ -9,7 +9,8 @@ import SwiftUI
     @objc func quitApp()
 }
 
-class StatusBarMenu: NSObject, ObservableObject {
+@MainActor
+final class StatusBarMenu: @unchecked Sendable {
     weak var delegate: StatusBarMenuDelegate?
     @Published var isVPNActive: Bool = false
     @Published var isAuthenticating: Bool = false
@@ -21,8 +22,7 @@ class StatusBarMenu: NSObject, ObservableObject {
     
     static let shared = StatusBarMenu()
     
-    override init() {
-        super.init()
+    init() {
         startVPNCheck()
     }
     
@@ -93,16 +93,17 @@ class StatusBarMenu: NSObject, ObservableObject {
     private func startIconAnimation(_ button: NSStatusBarButton) {
         animationTimer?.invalidate()
         animationTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
-            guard let self = self else { return }
-            self.rotationAngle += .pi / 8
-            
-            let image = NSImage(systemSymbolName: "network", accessibilityDescription: "PassPunk")
-            image?.isTemplate = true
-            
-            // Applica la rotazione all'immagine
-            let rotatedImage = image?.rotated(by: self.rotationAngle)
-            button.image = rotatedImage
-            button.contentTintColor = .systemBlue
+            Task { @MainActor [weak self] in
+                guard let self = self else { return }
+                self.rotationAngle += .pi / 8
+                
+                let image = NSImage(systemSymbolName: "network", accessibilityDescription: "PassPunk")
+                image?.isTemplate = true
+                
+                let rotatedImage = image?.rotated(by: self.rotationAngle)
+                button.image = rotatedImage
+                button.contentTintColor = .systemBlue
+            }
         }
     }
     
@@ -116,7 +117,9 @@ class StatusBarMenu: NSObject, ObservableObject {
         switch gesture.state {
         case .began:
             longPressTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: false) { [weak self] _ in
-                self?.startVPNAuthentication()
+                Task { @MainActor [weak self] in
+                    self?.startVPNAuthentication()
+                }
             }
         case .ended, .cancelled:
             longPressTimer?.invalidate()

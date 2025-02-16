@@ -4,7 +4,8 @@ import Security
 import SwiftUI
 import os.log
 
-class AppDelegate: NSObject, NSApplicationDelegate, StatusBarMenuDelegate {
+@MainActor
+final class AppDelegate: NSObject, NSApplicationDelegate, StatusBarMenuDelegate {
     private var mainAppView: NSWindow?
     private var mainAppViewController: NSWindowController?
     private let statusBarController = StatusBarController.shared
@@ -67,7 +68,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, StatusBarMenuDelegate {
         NSApplication.shared.terminate(nil)
     }
     
-    @objc @Sendable func performManualCheck() {
+    @objc func performManualCheck() {
         Task {
             do {
                 // Specify the type explicitly to resolve ambiguity

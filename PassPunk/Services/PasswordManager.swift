@@ -1,7 +1,8 @@
 import Foundation
 import AppKit
 
-class PasswordManager {
+@MainActor
+final class PasswordManager: @unchecked Sendable {
     static let shared = try! PasswordManager()
     private let keychain = KeychainManager.shared
 

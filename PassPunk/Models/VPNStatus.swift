@@ -9,7 +9,7 @@ enum VPNStatus {
         switch self {
         case .connected: return "Connected"
         case .disconnected: return "Disconnected"
-        case .connecting: return "Connecting"
+        case .connecting: return "Connecting..."
         }
     }
     

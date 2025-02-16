@@ -8,7 +8,8 @@ import SwiftUI
 import CoreGraphics
 
 @available(macOS 15.0, *)
-class VPNManager: ObservableObject {
+@MainActor
+final class VPNManager: @unchecked Sendable, ObservableObject {
     static let shared = VPNManager()
     private let logger = Logger(subsystem: "com.passpunk.PassPunk", category: "VPNManager")
     private let defaults = UserDefaults.standard
@@ -37,7 +38,7 @@ class VPNManager: ObservableObject {
         
         logger.info("Starting VPN authentication process")
         
-        guard let credentials = try getCredentials() else {
+        guard try getCredentials() != nil else {
             self.connectionState = .disconnected
             logger.error("Failed to retrieve VPN credentials")
             throw VPNError.credentialsNotFound

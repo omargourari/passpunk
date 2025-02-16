@@ -8,15 +8,15 @@ enum LaunchAgentError: Error {
     case failedToRemoveLaunchAgent
 }
 
-class LaunchAgentManager {
+@MainActor
+final class LaunchAgentManager: @unchecked Sendable {
     static let shared = LaunchAgentManager()
     
     private let launchAgentFileName = "com.passpunk.launcher.plist"
     private var launchAgentURL: URL? {
-        guard let homeDirectory = FileManager.default.homeDirectoryForCurrentUser.path as String? else {
-            return nil
-        }
-        return URL(fileURLWithPath: "\(homeDirectory)/Library/LaunchAgents/\(launchAgentFileName)")
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/LaunchAgents")
+            .appendingPathComponent(launchAgentFileName)
     }
     
     private init() {}
@@ -43,7 +43,7 @@ class LaunchAgentManager {
         }
         
         // Ottieni il percorso del file plist all'interno del bundle dell'applicazione
-        guard let bundlePath = Bundle.main.path(forResource: "com.passpunk.launcher", ofType: "plist") else {
+        guard let bundlePath = Bundle.module.path(forResource: "com.passpunk.launcher", ofType: "plist") else {
             throw LaunchAgentError.failedToCopyLaunchAgent
         }
         

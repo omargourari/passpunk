@@ -1,7 +1,8 @@
 import Foundation
 import AppKit
 
-class VPNService {
+@MainActor
+final class VPNService: @unchecked Sendable {
     static let shared = VPNService()
     
     private init() {}

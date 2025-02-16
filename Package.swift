@@ -1,22 +1,28 @@
-// swift-tools-version:5.5
+// swift-tools-version:6.0
 import PackageDescription
 
 let package = Package(
     name: "PassPunk",
     platforms: [
-        .macOS("15.0")
+        .macOS(.v15)
     ],
     products: [
-        .executable(name: "PassPunk", targets: ["PassPunk"])
+        .executable(
+            name: "PassPunk",
+            targets: ["PassPunk"]
+        )
     ],
+    dependencies: [],
     targets: [
         .executableTarget(
             name: "PassPunk",
             path: "PassPunk",
-            exclude: [
-                "Assets.xcassets",
-                "Info.plist"
+            resources: [
+                .process("Assets.xcassets"),
+                .copy("PassPunk.entitlements"),
+                .copy("com.passpunk.launcher.plist")
             ]
         )
     ]
 )
+

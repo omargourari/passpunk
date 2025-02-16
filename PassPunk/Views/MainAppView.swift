@@ -1,17 +1,6 @@
 import SwiftUI
 import Security
-
-enum CheckStatus {
-    case idle
-    case inProgress
-    
-    var description: String {
-        switch self {
-        case .idle: return "Last check completed"
-        case .inProgress: return "Check in progress"
-        }
-    }
-}
+import PassPunk
 
 struct MainAppView: View {
     @AppStorage("vpnUsername") private var vpnUsername: String = ""
@@ -22,7 +11,6 @@ struct MainAppView: View {
     @State private var launchAtLogin: Bool = LaunchAgentManager.shared.isLaunchAgentInstalled()
     
     @State private var lastUpdateTime: String = "Never"
-    @State private var vpnStatus: VPNStatus = .disconnected
     @State private var checkStatus: CheckStatus = .idle
     @State private var remainingTime: Int = 0
     
@@ -38,19 +26,6 @@ struct MainAppView: View {
     
     @StateObject private var statusBarController = StatusBarController.shared
     @StateObject private var vpnManager = VPNManager.shared
-    @State private var isAuthenticating = false
-    
-    enum CheckStatus {
-        case idle
-        case inProgress
-        
-        var description: String {
-            switch self {
-            case .idle: return "Last check completed"
-            case .inProgress: return "Check in progress"
-            }
-        }
-    }
     
     init() {
         _vpnPassword = State(initialValue: loadPasswordFromKeychain() ?? "")
@@ -223,16 +198,26 @@ struct MainAppView: View {
     
     private func updateStatus() {
         // Update VPN status using the shared instance
-        vpnStatus = statusBarController.connectionStatus
+        statusBarController.connectionStatus = vpnManager.connectionState
         
         // Update password expiry days
-        if let lastUpdate = UserDefaults.standard.object(forKey: "LastUpdateTime") as? Date {
-            let calendar = Calendar.current
-            let expiryDate = calendar.date(byAdding: .day, value: 90, to: lastUpdate) ?? Date()
-            let components = calendar.dateComponents([.day], from: Date(), to: expiryDate)
-            passwordExpiryDays = max(0, components.day ?? 0)
-        } else {
-            passwordExpiryDays = 0
+        if let expiryDays = try? BrowserAutomation.shared.getPasswordExpiryDays() {
+            passwordExpiryDays = expiryDays
+        }
+        
+        // Update last check time
+        if let lastCheck = UserDefaults.standard.object(forKey: "lastCheckTime") as? Date {
+            lastUpdateTime = formatDate(lastCheck)
+        }
+        
+        // Calculate remaining time
+        if checkStatus == .idle {
+            let lastCheckTime = UserDefaults.standard.object(forKey: "lastCheckTime") as? Date ?? Date()
+            let nextCheckTime = lastCheckTime.addingTimeInterval(checkInterval)
+            remainingTime = Int(nextCheckTime.timeIntervalSince(Date()))
+            if remainingTime < 0 {
+                remainingTime = 0
+            }
         }
     }
     
@@ -250,6 +235,13 @@ struct MainAppView: View {
         let minutes = seconds / 60
         let remainingSeconds = seconds % 60
         return String(format: "%02d:%02d", minutes, remainingSeconds)
+    }
+    
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
     }
     
     private func savePasswordToKeychain(_ password: String) {
@@ -294,7 +286,6 @@ struct MainAppView: View {
     
     private var vpnButton: some View {
         Button(action: {
-            isAuthenticating = true
             Task {
                 do {
                     try await vpnManager.authenticate()
@@ -307,32 +298,30 @@ struct MainAppView: View {
                         alert.runModal()
                     }
                 }
-                isAuthenticating = false
             }
         }) {
-            if isAuthenticating || vpnManager.connectionState == .connecting {
+            if vpnManager.isAuthenticating || vpnManager.connectionState == .connecting {
                 ConnectingText()
-                    .frame(minWidth: 100)
             } else {
                 Text(getVPNButtonText())
-                    .frame(minWidth: 100)
             }
         }
-        .buttonStyle(VPNButtonStyle(
-            isEnabled: !isAuthenticating && vpnManager.connectionState == .disconnected,
-            isVPNButton: true
-        ))
-        .disabled(isAuthenticating)
+        .buttonStyle(VPNButtonStyle(isEnabled: !vpnManager.isAuthenticating, isVPNButton: true))
+        .disabled(vpnManager.isAuthenticating)
     }
     
     private func getVPNButtonText() -> String {
+        if vpnManager.isAuthenticating {
+            return "Connecting..."
+        }
+        
         switch vpnManager.connectionState {
         case .connected:
             return "Disable VPN"
         case .disconnected:
             return "Enable VPN"
         case .connecting:
-            return "Connecting"
+            return "Connecting..."
         }
     }
 }
@@ -353,34 +342,31 @@ struct CustomTextFieldStyle: TextFieldStyle {
 }
 
 struct CustomToggleStyle: ToggleStyle {
-    func makeBody(configuration: Configuration) -> some View {
+    func makeBody(configuration: ToggleStyleConfiguration) -> some View {
         HStack {
             configuration.label
                 .font(.system(size: 13))
             Spacer()
             Toggle("", isOn: configuration.$isOn)
+                .labelsHidden()
         }
     }
 }
 
-// Remove the associated type requirement from the protocol
-protocol AppButtonStyle: ButtonStyle {}
-
-// Update the button style implementations
-struct CustomButtonStyle: AppButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
+struct CustomButtonStyle: ButtonStyle {
+    func makeBody(configuration: ButtonStyleConfiguration) -> some View {
         configuration.label
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
-            .background(Color(nsColor: .controlAccentColor))
+            .background(Color.accentColor)
             .foregroundColor(.white)
             .cornerRadius(6)
             .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
     }
 }
 
-struct DisabledButtonStyle: AppButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
+struct DisabledButtonStyle: ButtonStyle {
+    func makeBody(configuration: ButtonStyleConfiguration) -> some View {
         configuration.label
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
@@ -506,7 +492,7 @@ struct BrowserButton: View {
 struct TagButtonStyle: ButtonStyle {
     let isSelected: Bool
     
-    func makeBody(configuration: Configuration) -> some View {
+    func makeBody(configuration: ButtonStyleConfiguration) -> some View {
         configuration.label
             .foregroundColor(isSelected ? .white : .primary)
             .background(isSelected ? Color.accentColor : Color(.controlBackgroundColor))
@@ -518,12 +504,11 @@ struct TagButtonStyle: ButtonStyle {
     }
 }
 
-// Define a single button style type that can handle both states
 struct VPNButtonStyle: ButtonStyle {
     let isEnabled: Bool
     let isVPNButton: Bool
     
-    func makeBody(configuration: Configuration) -> some View {
+    func makeBody(configuration: ButtonStyleConfiguration) -> some View {
         configuration.label
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
@@ -535,10 +520,9 @@ struct VPNButtonStyle: ButtonStyle {
     
     private func getBackgroundColor() -> Color {
         if isVPNButton {
-            // Reverse the logic for VPN button
-            return isEnabled ? Color(nsColor: .controlAccentColor) : Color(.disabledControlTextColor).opacity(0.3)
+            return isEnabled ? Color.accentColor : Color(.disabledControlTextColor).opacity(0.3)
         } else {
-            return isEnabled ? Color(nsColor: .controlAccentColor) : Color(.disabledControlTextColor).opacity(0.3)
+            return isEnabled ? Color.accentColor : Color(.disabledControlTextColor).opacity(0.3)
         }
     }
 }

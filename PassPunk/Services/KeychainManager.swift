@@ -8,7 +8,8 @@ enum KeychainError: Error {
     case invalidData
 }
 
-class KeychainManager {
+@MainActor
+final class KeychainManager: @unchecked Sendable {
     static let shared = KeychainManager()
     
     private init() {}

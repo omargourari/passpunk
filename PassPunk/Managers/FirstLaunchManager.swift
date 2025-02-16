@@ -3,6 +3,7 @@ import Cocoa
 import os.log
 
 @available(macOS 15.0, *)
+@MainActor
 class FirstLaunchManager: @unchecked Sendable {
     static let shared = FirstLaunchManager()
     private let defaults = UserDefaults.standard
