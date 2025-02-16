@@ -2,6 +2,11 @@
 
 PassPunk is a macOS utility designed to automate VPN authentication and password management for corporate environments. It runs in the background and provides easy access through the menu bar.
 
+## System Requirements
+- macOS 15.0 or later
+- F5 VPN Client installed
+- Administrative privileges for password management
+
 ## Features
 
 - Automated VPN connection management
@@ -63,6 +68,14 @@ PassPunk follows a modular architecture with clear separation of concerns:
 
 ### Implementation Details
 
+#### System Requirements
+- Minimum macOS Version: 15.0
+- Target macOS Version: 15.0+
+- Required Permissions: 
+  - Accessibility
+  - Keychain Access
+  - Automation
+
 #### VPN Authentication Flow
 1. Status check initiated (manual/automatic)
 2. VPN connection verified
@@ -101,4 +114,187 @@ Custom modal implementation with features:
 Contributions welcome. Please follow the existing code style and include appropriate tests.
 
 ## License
-Proprietary software. All rights reserved. 
+Proprietary software. All rights reserved.
+
+## Technical Analysis
+
+### Core Components Analysis
+
+#### VPNManager (VPNManager.swift)
+```swift:PassPunk/Managers/VPNManager.swift
+startLine: 10
+endLine: 56
+```
+- Singleton pattern implementation
+- Handles VPN authentication and connection management
+- Uses async/await for asynchronous operations
+- Implements comprehensive error handling
+- Uses system logging for debugging
+- Manages connection state through @Published properties
+
+Key Concerns:
+- Heavy reliance on UserDefaults for credential storage
+- Complex UI automation logic
+- Polling-based window detection
+- Multiple responsibilities (authentication, UI automation, credential management)
+
+#### FirstLaunchManager (FirstLaunchManager.swift)
+```swift:PassPunk/Managers/FirstLaunchManager.swift
+startLine: 5
+endLine: 40
+```
+- Handles first-time setup flow
+- Manages accessibility permissions
+- Handles VPN credential collection
+- Uses continuation-based async/await patterns
+
+Areas for Improvement:
+- UserDefaults for persistent storage
+- Mixed UI and business logic
+- Limited error recovery mechanisms
+- Synchronous accessibility checks
+
+#### AppDelegate (AppDelegate.swift)
+```swift:PassPunk/App/AppDelegate.swift
+startLine: 7
+endLine: 30
+```
+- Manages application lifecycle
+- Handles status bar integration
+- Coordinates periodic checks
+- Manages window lifecycle
+
+Technical Debt:
+- Direct manager instantiation
+- Print statements for error logging
+- Manual window management
+- Limited error handling in periodic checks
+
+### Architecture Patterns
+
+1. **Singleton Usage**
+   - VPNManager.shared
+   - FirstLaunchManager.shared
+   - StatusBarController.shared
+   Potential Issues:
+   - Global state management
+   - Testing difficulties
+   - Tight coupling
+
+2. **Asynchronous Patterns**
+   - Extensive use of async/await
+   - Continuation-based asynchronous UI
+   - Task-based background operations
+   Implementation Concerns:
+   - Mixed usage of DispatchQueue and async/await
+   - Potential race conditions in state management
+   - Limited cancellation handling
+
+3. **Error Handling**
+   - Custom VPNError enum
+   - Try-catch blocks
+   - Error logging
+   Improvements Needed:
+   - More granular error types
+   - Better error recovery mechanisms
+   - Structured logging
+
+4. **UI Automation**
+   - CGEvent-based keyboard input
+   - Accessibility API usage
+   - Mouse click simulation
+   Risks:
+   - OS version dependency
+   - Fragile UI automation
+   - Limited error recovery
+
+### Critical Paths
+
+1. **VPN Authentication Flow**
+```swift:PassPunk/Managers/VPNManager.swift
+startLine: 91
+endLine: 172
+```
+   - Application launch
+   - Window detection
+   - Credential input
+   - 2FA handling
+   - Connection verification
+
+2. **First Launch Setup**
+```swift:PassPunk/Managers/FirstLaunchManager.swift
+startLine: 24
+endLine: 40
+```
+   - Permission checks
+   - Credential collection
+   - Initial configuration
+
+3. **Periodic Check Mechanism**
+```swift:PassPunk/App/AppDelegate.swift
+startLine: 90
+endLine: 98
+```
+   - VPN authentication
+   - Password verification
+   - Error handling
+
+### Security Considerations
+
+1. **Credential Management**
+   - Stored in UserDefaults (security risk)
+   - Plain text password handling
+   - Limited encryption
+
+2. **Accessibility Permissions**
+   - Full system accessibility required
+   - Potential security implications
+   - Limited scope control
+
+3. **Automation Security**
+   - CGEvent injection
+   - System-wide accessibility
+   - Keyboard event simulation
+
+### Performance Considerations
+
+1. **Resource Usage**
+   - Continuous polling for window detection
+   - Multiple async tasks
+   - UI automation overhead
+
+2. **Memory Management**
+   - Window reference handling
+   - Task lifecycle management
+   - Resource cleanup
+
+3. **Response Time**
+   - Sleep delays in automation
+   - Window detection latency
+   - Authentication timeouts
+
+### Recommendations
+
+1. **Immediate Improvements**
+   - Move credentials to Keychain
+   - Implement proper logging strategy
+   - Add timeout handling
+   - Improve error recovery
+
+2. **Architecture Refactoring**
+   - Split VPNManager responsibilities
+   - Create dedicated UI automation service
+   - Implement proper dependency injection
+   - Add middleware for error handling
+
+3. **Security Enhancements**
+   - Implement secure credential storage
+   - Add encryption for sensitive data
+   - Improve permission management
+   - Add security logging
+
+4. **Performance Optimization**
+   - Replace polling with notifications
+   - Optimize sleep durations
+   - Implement proper resource cleanup
+   - Add performance monitoring 
