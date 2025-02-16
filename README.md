@@ -297,4 +297,47 @@ endLine: 98
    - Replace polling with notifications
    - Optimize sleep durations
    - Implement proper resource cleanup
-   - Add performance monitoring 
+   - Add performance monitoring
+
+## Architettura e Design Patterns
+
+### Gestione della Concorrenza
+
+1. **MainActor e Isolamento**
+   - Tutte le classi che gestiscono l'UI o lo stato dell'applicazione sono annotate con `@MainActor`
+   - Le classi singleton implementano `@unchecked Sendable` per la sicurezza della concorrenza
+   - Le operazioni asincrone sono eseguite in `Task` blocks con isolamento `@MainActor` quando necessario
+
+2. **Gestione del Ciclo di Vita**
+   - I timer e le risorse devono essere correttamente invalidati nel `deinit`
+   - Le operazioni di cleanup devono essere eseguite nel contesto appropriato (MainActor vs background)
+   - Attenzione ai potenziali memory leaks nei cicli di riferimento con timer e closure
+
+3. **Pattern Delegate**
+   - Uso di weak references per evitare retain cycles
+   - Protocolli delegate sono marcati come `@objc` quando necessario per l'interoperabilità
+   - I delegate sono utilizzati per la comunicazione tra componenti mantenendo un basso accoppiamento
+
+4. **Gestione dello Stato**
+   - Stato centralizzato attraverso singleton thread-safe
+   - Notifiche per comunicare cambiamenti di stato tra componenti
+   - Uso di `@Published` per proprietà osservabili in SwiftUI
+
+5. **Error Handling**
+   - Errori tipizzati per domini specifici (VPN, Keychain, etc.)
+   - Gestione consistente degli errori attraverso `do-catch`
+   - Propagazione appropriata degli errori attraverso i livelli dell'applicazione
+
+6. **Separazione delle Responsabilità**
+   - Chiara separazione tra UI (Views), logica di business (Managers) e dati (Models)
+   - Componenti modulari con interfacce ben definite
+   - Evitare dipendenze circolari tra componenti
+
+### Punti di Attenzione
+
+- La gestione dei timer e delle risorse nel `deinit` deve essere rivista per garantire l'esecuzione nel contesto corretto
+- Potenziale introduzione di un pattern di state management più strutturato
+- Migliorare la gestione delle dipendenze tra componenti
+- Considerare l'uso di dependency injection per facilitare i test
+- Implementare logging consistente attraverso l'applicazione
+- Aggiungere test unitari per la logica di business critica 
