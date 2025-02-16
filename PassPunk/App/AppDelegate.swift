@@ -5,8 +5,8 @@ import SwiftUI
 import os.log
 
 class AppDelegate: NSObject, NSApplicationDelegate, StatusBarMenuDelegate {
-    private var mainWindow: NSWindow?
-    private var mainWindowController: NSWindowController?
+    private var mainAppView: NSWindow?
+    private var mainAppViewController: NSWindowController?
     private let statusBarController = StatusBarController.shared
     private let logger = Logger(subsystem: "com.passpunk.PassPunk", category: "AppDelegate")
     
@@ -30,8 +30,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, StatusBarMenuDelegate {
         }
     }
     
-    private func openMainWindow() {
-        if let existingWindow = mainWindow {
+    private func openMainAppView() {
+        if let existingWindow = mainAppView {
             existingWindow.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
             return
@@ -52,15 +52,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, StatusBarMenuDelegate {
         
         // Create a window controller to manage the window lifecycle
         let windowController = NSWindowController(window: window)
-        mainWindowController = windowController
-        mainWindow = window
+        mainAppViewController = windowController
+        mainAppView = window
         
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
     
     @objc func openSettings() {
-        openMainWindow()
+        openMainAppView()
     }
     
     func quitApp() {
@@ -106,10 +106,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, StatusBarMenuDelegate {
 // Update window delegate extension
 extension AppDelegate: NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
-        if notification.object as? NSWindow == mainWindow {
+        if notification.object as? NSWindow == mainAppView {
             // Clean up references
-            mainWindow = nil
-            mainWindowController = nil
+            mainAppView = nil
+            mainAppViewController = nil
         }
     }
 }

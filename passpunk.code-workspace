@@ -11,13 +11,9 @@
 			"source.sortMembers": "never",
 		},
 		"cursor.general.disableHttp2": true,
-		"configurations": [
-			{
-				"name": "Swift Debug",
-				"type": "lldb",
-				"request": "launch",
-				"program": "${workspaceFolder}/.build/debug/MySwiftApp"
-			}
-		],
+		"swift.path": "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin",
+		"swift.swiftEnvironmentVariables": {
+			"DEVELOPER_DIR": "/Applications/Xcode.app"
+		},
 	}
 }

@@ -1,6 +1,18 @@
 import SwiftUI
 import Security
 
+enum CheckStatus {
+    case idle
+    case inProgress
+    
+    var description: String {
+        switch self {
+        case .idle: return "Last check completed"
+        case .inProgress: return "Check in progress"
+        }
+    }
+}
+
 struct MainAppView: View {
     @AppStorage("vpnUsername") private var vpnUsername: String = ""
     @State private var vpnPassword: String = ""
