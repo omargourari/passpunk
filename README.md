@@ -14,16 +14,16 @@ PassPunk is a macOS utility designed to automate VPN authentication and password
 ## User Guide
 
 ### Installation
-Download and install PassPunk. On first launch, you'll be prompted to enter your VPN credentials.
+Download and install PassPunk. On first launch, you'll be prompted to enter your VPN credentials and to enable accessibility tools access to the app.
 
 ### Menu Bar Interface
 - Green icon: VPN connected
 - Red icon: VPN disconnected
 - Blue animated icon: Authentication in progress
-- Click: Open settings window
-- Long press (3s): Initiate VPN connection
+- Click: Open application window
+- Long press (3s): Initiate VPN connection and admin password expiry time check
 
-### Settings Window
+### Main Window
 - Monitor VPN connection status
 - View password expiration countdown
 - Configure check intervals
@@ -31,7 +31,7 @@ Download and install PassPunk. On first launch, you'll be prompted to enter your
 - Update VPN credentials
 
 ## Technical Documentation
-
+****
 ### Architecture Overview
 PassPunk follows a modular architecture with clear separation of concerns:
 - UI Layer (SwiftUI views)
